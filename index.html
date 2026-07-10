@@ -46,6 +46,9 @@ header { display:flex; justify-content:space-between; align-items:center; margin
 .btn-primary { background:var(--accent); color:white; }
 .empty-state { text-align:center; padding:60px 20px; color:#64748b; }
 .editor-content ul, .editor-content ol { padding-right: 25px; margin: 8px 0; }
+.toolbar button[id^="hl-"] {
+  transition: all 0.2s ease;
+}
 .action-buttons { display:flex; gap:8px; margin-right:auto; }
 </style>
 </head>
@@ -410,11 +413,24 @@ function toggleHighlight(color){
 }
 
 function resetHighlighterButtons(){
-  document.querySelectorAll('.toolbar button[id^="hl-"]').forEach(btn => btn.classList.remove('active'));
+  // نقوم أولاً بإزالة التحديد والإطار عن جميع أزرار التظليل
+  document.querySelectorAll('.toolbar button[id^="hl-"]').forEach(btn => {
+    btn.style.outline = 'none';
+    btn.style.boxShadow = 'none';
+    btn.style.transform = 'none';
+  });
+  
+  // إذا كان هناك تظليل نشط حالياً، نضع حول الزر الخاص به علامة تحديد مميزة
   if(currentHighlight){
-    if(currentHighlight==='#86efac') document.getElementById('hl-green').classList.add('active');
-    if(currentHighlight==='#fda4af') document.getElementById('hl-red').classList.add('active');
-    if(currentHighlight==='#fde047') document.getElementById('hl-yellow').classList.add('active');
+    let activeBtn = null;
+    if(currentHighlight==='#86efac') activeBtn = document.getElementById('hl-green');
+    if(currentHighlight==='#fda4af') activeBtn = document.getElementById('hl-red');
+    if(currentHighlight==='#fde047') activeBtn = document.getElementById('hl-yellow');
+    
+    if(activeBtn) {
+      activeBtn.style.outline = '3px solid #1e2937'; // إطار داكن يثبت الاختيار
+      activeBtn.style.transform = 'scale(1.1)'; // تكبير بسيط جداً لبيان النشاط
+    }
   }
 }
 
