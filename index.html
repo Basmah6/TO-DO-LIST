@@ -91,7 +91,7 @@ header { display:flex; justify-content:space-between; align-items:center; margin
       <button onclick="formatText('formatBlock','h2')">H2</button>
       <button onclick="formatText('bold')"><strong>B</strong></button>
       <button onclick="formatText('italic')"><em>I</em></button>
-      <button onmousedown="event.preventDefault(); toggleHighlight('#86efac')" id="hl-green" style="background:#86efac;color:#166534;font-size:18px;">✏️</button>
+     <button onmousedown="event.preventDefault(); toggleHighlight('#86efac')" id="hl-green" style="background:#86efac;color:#166534;font-size:18px;">✏️</button>
 <button onmousedown="event.preventDefault(); toggleHighlight('#fda4af')" id="hl-red" style="background:#fda4af;color:#9f1239;font-size:18px;">✏️</button>
 <button onmousedown="event.preventDefault(); toggleHighlight('#fde047')" id="hl-yellow" style="background:#fde047;color:#854d0e;font-size:18px;">✏️</button>
       
@@ -398,26 +398,43 @@ function formatText(cmd,val=null){
 }
 
 function toggleHighlight(color){
-  // إرسال أمر التلوين فوراً للنص الذي قمت بتحديده بيدك
-  document.execCommand('styleWithCSS', false, true);
-  document.execCommand('backColor', false, color);
+  const selection = window.getSelection();
   
-  // تصفير الاختيارات وتنظيف الأزرار لمنع وراثة الألوان أثناء الكتابة التالية
+  // نتحقق أولاً أن المستخدم قام بتحديد نص بالفعل
+  if (selection && selection.rangeCount > 0 && selection.toString().length > 0) {
+    const range = selection.getRangeAt(0);
+    
+    // إنشاء عنصر خلفية (mark) وتلوينه باللون المطلوب
+    const mark = document.createElement('mark');
+    mark.style.backgroundColor = color;
+    mark.style.color = 'inherit'; // للحفاظ على لون خط المستخدم (أزرق أو وردي)
+    
+    try {
+      // استخراج النص المحدد ووضعه داخل الـ mark الملون
+      mark.appendChild(range.extractContents());
+      // إدخال الـ mark الملون في نفس مكان النص القديم بالضبط
+      range.insertNode(mark);
+    } catch (err) {
+      console.error("فشل التلوين المباشر:", err);
+    }
+    
+    // إزالة التحديد بعد التلوين بنجاح
+    selection.removeAllRanges();
+  }
+  
+  // تنظيف الهايلايتر وحفظ التغييرات فوراً في قاعدة البيانات
   currentHighlight = null; 
   resetHighlighterButtons();
-  
-  // إعادة فرض لون الخط الخاص بنواف أو بسمة (أزرق/وردي) للكتابة العادية القادمة
-  setTimeout(applyUserColorDirectly, 10);
+  setTimeout(saveCurrentNote, 100);
 }
 
 function resetHighlighterButtons(){
-  // تنظيف الأزرار تماماً لتبقى بشكلها الطبيعي المستعد للضغط
-  document.querySelectorAll('.toolbar button[id^="hl-"]').forEach(btn => {
-    btn.classList.remove('active');
-    btn.style.outline = 'none';
-    btn.style.boxShadow = 'none';
-    btn.style.transform = 'none';
-  });
+  document.querySelectorAll('.toolbar button[id^="hl-"]').forEach(btn => btn.classList.remove('active'));
+  if(currentHighlight){
+    if(currentHighlight==='#86efac') document.getElementById('hl-green').classList.add('active');
+    if(currentHighlight==='#fda4af') document.getElementById('hl-red').classList.add('active');
+    if(currentHighlight==='#fde047') document.getElementById('hl-yellow').classList.add('active');
+  }
 }
 
 function applyTheme(t){
