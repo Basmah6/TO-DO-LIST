@@ -46,9 +46,6 @@ header { display:flex; justify-content:space-between; align-items:center; margin
 .btn-primary { background:var(--accent); color:white; }
 .empty-state { text-align:center; padding:60px 20px; color:#64748b; }
 .editor-content ul, .editor-content ol { padding-right: 25px; margin: 8px 0; }
-.toolbar button[id^="hl-"] {
-  transition: all 0.2s ease;
-}
 .action-buttons { display:flex; gap:8px; margin-right:auto; }
 </style>
 </head>
@@ -404,40 +401,29 @@ function toggleHighlight(color){
   const e = document.getElementById('note-content');
   e.focus();
   
-  if(currentHighlight === color){
-    // إذا ضغطت عليه مرة أخرى: نقوم بإيقافه تماماً
-    currentHighlight = null;
+  // التحقق مما إذا كان المستخدم قد حدد (ظلل) نصاً بالفعل داخل المحرر
+  const selection = window.getSelection();
+  if (selection && selection.toString().length > 0) {
     document.execCommand('styleWithCSS', false, true);
-    document.execCommand('backColor', false, 'rgba(0,0,0,0)'); // إزالة لون التظليل من قلم المتصفح فوراً
-  } else {
-    // إذا اخترت لون جديد
-    currentHighlight = color;
+    document.execCommand('backColor', false, color);
   }
   
+  // نلغي أي حالة اختيار مستمرة حتى لا يؤثر على الأحرف القادمة
+  currentHighlight = null; 
   resetHighlighterButtons();
-  applyUserColorDirectly();
+  
+  // إعادة فرض لون المستخدم (أزرق/وردي) للتأكيد
+  setTimeout(applyUserColorDirectly, 10);
 }
 
 function resetHighlighterButtons(){
-  // نقوم أولاً بإزالة التحديد والإطار عن جميع أزرار التظليل
+  // تنظيف الأزرار تماماً لتبقى بشكلها الطبيعي المستعد للضغط
   document.querySelectorAll('.toolbar button[id^="hl-"]').forEach(btn => {
+    btn.classList.remove('active');
     btn.style.outline = 'none';
     btn.style.boxShadow = 'none';
     btn.style.transform = 'none';
   });
-  
-  // إذا كان هناك تظليل نشط حالياً، نضع حول الزر الخاص به علامة تحديد مميزة
-  if(currentHighlight){
-    let activeBtn = null;
-    if(currentHighlight==='#86efac') activeBtn = document.getElementById('hl-green');
-    if(currentHighlight==='#fda4af') activeBtn = document.getElementById('hl-red');
-    if(currentHighlight==='#fde047') activeBtn = document.getElementById('hl-yellow');
-    
-    if(activeBtn) {
-      activeBtn.style.outline = '3px solid #1e2937'; // إطار داكن يثبت الاختيار
-      activeBtn.style.transform = 'scale(1.1)'; // تكبير بسيط جداً لبيان النشاط
-    }
-  }
 }
 
 function applyTheme(t){
@@ -460,14 +446,13 @@ function applyUserColorDirectly() {
   if (document.activeElement !== editor && document.getElementById('editor-screen').style.display === 'block') {
     editor.focus();
   }
-  const userColor = currentUser === 'nawaf' ? '#1e40af' : '#db2777'; 
+  const userColor = currentUser === 'nawaf' ? '#1e40af' : '#db2777'; // أزرق لنواف ووردي لبسمة
   document.execCommand('styleWithCSS', false, true);
   document.execCommand('foreColor', false, userColor);
   
   if (currentHighlight) {
     document.execCommand('backColor', false, currentHighlight);
   } else {
-    // هنا نضمن إيقاف التظليل بشكل كامل وقطعي ومسح تأثيره
     document.execCommand('backColor', false, 'rgba(0,0,0,0)');
   }
 }
