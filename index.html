@@ -187,6 +187,7 @@ async function confirmNewNote() {
 
 
 
+
 async function openNote(id){
   currentNoteId = id;
 
@@ -483,17 +484,24 @@ init();
 
 async function addNote(title, content, color, pinned) {
   try {
-    await databases.createDocument('notes-db', 'notes', 'unique()', {
-      title,
-      content,
-      color,
-      pinned
-    });
+    const res = await databases.createDocument(
+      'notes-db',
+      'notes',
+      'unique()',
+      {
+        title: title,
+        content: content,
+        color: color,
+        pinned: pinned
+      }
+    );
+    console.log("تمت الإضافة:", res);
     loadNotes();
   } catch (err) {
-    console.error(err);
+    console.error("خطأ أثناء الإضافة:", err);
   }
 }
+
 
 
 async function updateNote(id, data) {
