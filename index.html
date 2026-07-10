@@ -465,11 +465,12 @@ init();
 
 <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.0"></script>
 <script>
-  const client = new Appwrite.Client()
-    .setEndpoint('https://cloud.appwrite.io/v1')
-    .setProject('6a508022003195c92d28'); // Project ID حقك
+const client = new Appwrite.Client()
+  .setEndpoint('https://fra.cloud.appwrite.io/v1')
+  .setProject('6a507e68000dc92f9a3e');
 
-  const databases = new Appwrite.Databases(client);
+const databases = new Appwrite.Databases(client);
+
 
   async function loadNotes() {
   try {
