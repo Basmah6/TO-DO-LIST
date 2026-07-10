@@ -438,14 +438,14 @@ function applyUserColorDirectly() {
   if (document.activeElement !== editor && document.getElementById('editor-screen').style.display === 'block') {
     editor.focus();
   }
-  const userColor = currentUser === 'nawaf' ? '#1e40af' : '#db2777'; 
+  const userColor = currentUser === 'nawaf' ? '#1e40af' : '#db2777'; // أزرق لنواف ووردي لبسمة
   document.execCommand('styleWithCSS', false, true);
   document.execCommand('foreColor', false, userColor);
   
   if (currentHighlight) {
     document.execCommand('backColor', false, currentHighlight);
   } else {
-    document.execCommand('backColor', false, 'rgba(0,0,0,0)'); // تم تعديلها هنا لضمان عدم تداخل الألوان الافتراضية للمتصفح
+    document.execCommand('backColor', false, 'rgba(0,0,0,0)');
   }
 }
 
@@ -473,18 +473,13 @@ function init(){
 
   const editor = document.getElementById('note-content');
 
+  // ضمان بقاء وتطبيق التلوين فوراً عند الضغط داخل المحرر أو النزول لسطر جديد
   editor.addEventListener('focus', () => { applyUserColorDirectly(); });
   editor.addEventListener('click', () => { applyUserColorDirectly(); });
   
-  // 1. ميزتها الأساسية: تتدخل "قبل" إدخال الحرف لقطع وراثة الألوان عند الحذف
-  editor.addEventListener('beforeinput', (e) => {
-    applyUserColorDirectly();
-  });
-
-  // 2. ميزتها الأساسية: فحص فوري ومستمر بمجرد الضغط على أي زر لضمان ثبات الأزرق والوردي
   editor.addEventListener('keydown', (e) => {
-    setTimeout(applyUserColorDirectly, 1);
     if (e.key === 'Enter') {
+      // الانتظار الفوري لأجزاء من الثانية حتى ينزل السطر ثم تطبيق لون المستخدم فوراً
       setTimeout(applyUserColorDirectly, 10);
     }
   });
