@@ -91,9 +91,9 @@ header { display:flex; justify-content:space-between; align-items:center; margin
       <button onclick="formatText('formatBlock','h2')">H2</button>
       <button onclick="formatText('bold')"><strong>B</strong></button>
       <button onclick="formatText('italic')"><em>I</em></button>
-      <button onclick="toggleHighlight('#86efac')" id="hl-green" style="background:#86efac;color:#166534;font-size:18px;">✏️</button>
-      <button onclick="toggleHighlight('#fda4af')" id="hl-red" style="background:#fda4af;color:#9f1239;font-size:18px;">✏️</button>
-      <button onclick="toggleHighlight('#fde047')" id="hl-yellow" style="background:#fde047;color:#854d0e;font-size:18px;">✏️</button>
+      <button onmousedown="event.preventDefault(); toggleHighlight('#86efac')" id="hl-green" style="background:#86efac;color:#166534;font-size:18px;">✏️</button>
+<button onmousedown="event.preventDefault(); toggleHighlight('#fda4af')" id="hl-red" style="background:#fda4af;color:#9f1239;font-size:18px;">✏️</button>
+<button onmousedown="event.preventDefault(); toggleHighlight('#fde047')" id="hl-yellow" style="background:#fde047;color:#854d0e;font-size:18px;">✏️</button>
       
       <div class="action-buttons">
         <button onclick="togglePin()" id="pin-btn" style="background:none;border:1px solid var(--border);font-size:18px;cursor:pointer;padding:6px 12px;border-radius:8px;">📌 تثبيت</button>
@@ -398,32 +398,15 @@ function formatText(cmd,val=null){
 }
 
 function toggleHighlight(color){
-  const e = document.getElementById('note-content');
+  // إرسال أمر التلوين فوراً للنص الذي قمت بتحديده بيدك
+  document.execCommand('styleWithCSS', false, true);
+  document.execCommand('backColor', false, color);
   
-  // الحصول على النص المحدد حالياً
-  const selection = window.getSelection();
-  
-  if (selection && selection.rangeCount > 0 && selection.toString().length > 0) {
-    // حفظ التحديد الحالي في ذاكرة المتصفح
-    const range = selection.getRangeAt(0);
-    
-    // إعادة التركيز على صندوق الملاحظة
-    e.focus();
-    
-    // إعادة تثبيت التحديد المحفوظ لضمان عدم ضياعه بسبب ضغطة الزر
-    selection.removeAllRanges();
-    selection.addRange(range);
-    
-    // إرسال أمر التلوين فوراً للنص المحدد
-    document.execCommand('styleWithCSS', false, true);
-    document.execCommand('backColor', false, color);
-  }
-  
-  // إلغاء أي حالة اختيار مستمرة والتنظيف لمنع أي مشاكل وراثة ألوان أثناء الكتابة اللاحقة
+  // تصفير الاختيارات وتنظيف الأزرار لمنع وراثة الألوان أثناء الكتابة التالية
   currentHighlight = null; 
   resetHighlighterButtons();
   
-  // إعادة فرض لون الخط الخاص بنواف أو بسمة (أزرق/وردي) للكتابة القادمة
+  // إعادة فرض لون الخط الخاص بنواف أو بسمة (أزرق/وردي) للكتابة العادية القادمة
   setTimeout(applyUserColorDirectly, 10);
 }
 
