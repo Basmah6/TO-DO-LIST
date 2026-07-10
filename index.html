@@ -188,6 +188,7 @@ async function confirmNewNote() {
 
 
 
+
 async function openNote(id){
   currentNoteId = id;
 
@@ -465,11 +466,13 @@ init();
 
 <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.0"></script>
 <script>
-const client = new Appwrite.Client()
-  .setEndpoint('https://fra.cloud.appwrite.io/v1')
-  .setProject('6a507e68000dc92f9a3e');
+  const client = new Appwrite.Client()
+    .setEndpoint('https://fra.cloud.appwrite.io/v1')
+    .setProject('6a507e68000dc92f9a3e');
 
-const databases = new Appwrite.Databases(client);
+  const databases = new Appwrite.Databases(client);
+  const ID = Appwrite.ID;
+
 
 
   async function loadNotes() {
@@ -488,20 +491,24 @@ async function addNote(title, content, color, pinned) {
     const res = await databases.createDocument(
       'notes-db',
       'notes',
-      'unique()',
+      ID.unique(),   // هنا التغيير الحقيقي
       {
-        title: title,
-        content: content,
-        color: color,
-        pinned: pinned
+        title,
+        content,
+        color,
+        pinned
       }
     );
+
     console.log("تمت الإضافة:", res);
     loadNotes();
+    return res;
   } catch (err) {
-    console.error("خطأ أثناء الإضافة:", err);
+    console.error("ADD ERROR:", err);
   }
 }
+
+
 
 
 
