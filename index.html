@@ -403,11 +403,17 @@ function formatText(cmd,val=null){
 function toggleHighlight(color){
   const e = document.getElementById('note-content');
   e.focus();
+  
   if(currentHighlight === color){
+    // إذا ضغطت عليه مرة أخرى: نقوم بإيقافه تماماً
     currentHighlight = null;
+    document.execCommand('styleWithCSS', false, true);
+    document.execCommand('backColor', false, 'rgba(0,0,0,0)'); // إزالة لون التظليل من قلم المتصفح فوراً
   } else {
+    // إذا اخترت لون جديد
     currentHighlight = color;
   }
+  
   resetHighlighterButtons();
   applyUserColorDirectly();
 }
@@ -454,13 +460,14 @@ function applyUserColorDirectly() {
   if (document.activeElement !== editor && document.getElementById('editor-screen').style.display === 'block') {
     editor.focus();
   }
-  const userColor = currentUser === 'nawaf' ? '#1e40af' : '#db2777'; // أزرق لنواف ووردي لبسمة
+  const userColor = currentUser === 'nawaf' ? '#1e40af' : '#db2777'; 
   document.execCommand('styleWithCSS', false, true);
   document.execCommand('foreColor', false, userColor);
   
   if (currentHighlight) {
     document.execCommand('backColor', false, currentHighlight);
   } else {
+    // هنا نضمن إيقاف التظليل بشكل كامل وقطعي ومسح تأثيره
     document.execCommand('backColor', false, 'rgba(0,0,0,0)');
   }
 }
