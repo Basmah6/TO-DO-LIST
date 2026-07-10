@@ -273,7 +273,6 @@ function openNote(id){
   currentHighlight = null;
   resetHighlighterButtons();
   
-  // تفعيل القلم التلقائي فور فتح الملاحظة بناءً على المستخدم المختار
   applyUserColorDirectly();
   setTimeout(()=>{ document.getElementById('note-content').focus(); },80);
 }
@@ -432,13 +431,13 @@ function updateUserUI(){
   document.getElementById('user-basma').classList.toggle('active',currentUser==='basma');
 }
 
-// دالة ذكية لتجهيز لون الخط للمستخدم الحالي فوراً ودون تقطيع للحروف العربية
+// دالة الإجبار اللوني الكاملة لإلغاء أي وراثة ألوان قديمة ومنع اللون الأسود والرمادي تماماً
 function applyUserColorDirectly() {
   const editor = document.getElementById('note-content');
   if (document.activeElement !== editor && document.getElementById('editor-screen').style.display === 'block') {
     editor.focus();
   }
-  const userColor = currentUser === 'nawaf' ? '#1e40af' : '#db2777'; // أزرق لنواف ووردي لبسمة
+  const userColor = currentUser === 'nawaf' ? '#1e40af' : '#db2777'; 
   document.execCommand('styleWithCSS', false, true);
   document.execCommand('foreColor', false, userColor);
   
@@ -453,7 +452,6 @@ function selectUser(user){
   currentUser = user;
   localStorage.setItem('currentUser', user);
   updateUserUI();
-  // تحويل لون المؤشر والكتابة فوراً عند الضغط على اسم المستخدم بدون كتابة فراغات
   applyUserColorDirectly();
 }
 
@@ -473,13 +471,18 @@ function init(){
 
   const editor = document.getElementById('note-content');
 
-  // ضمان بقاء وتطبيق التلوين فوراً عند الضغط داخل المحرر أو النزول لسطر جديد
   editor.addEventListener('focus', () => { applyUserColorDirectly(); });
   editor.addEventListener('click', () => { applyUserColorDirectly(); });
   
+  // دالة الحماية والتحكم التام بالألوان لمنع وراثة الألوان عند الحذف أو الاستبدال الفوري
+  editor.addEventListener('beforeinput', (e) => {
+    applyUserColorDirectly();
+  });
+
   editor.addEventListener('keydown', (e) => {
+    // تشغيل فحص فوري عند الكتابة لمنع ظهور اللون الأسود نهائياً
+    setTimeout(applyUserColorDirectly, 1);
     if (e.key === 'Enter') {
-      // الانتظار الفوري لأجزاء من الثانية حتى ينزل السطر ثم تطبيق لون المستخدم فوراً
       setTimeout(applyUserColorDirectly, 10);
     }
   });
