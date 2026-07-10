@@ -91,9 +91,10 @@ header { display:flex; justify-content:space-between; align-items:center; margin
       <button onclick="formatText('formatBlock','h2')">H2</button>
       <button onclick="formatText('bold')"><strong>B</strong></button>
       <button onclick="formatText('italic')"><em>I</em></button>
-      <button onclick="toggleHighlight('#86efac')" id="hl-green" style="background:#86efac;color:#166534;font-size:18px;">✏️</button>
-      <button onclick="toggleHighlight('#fda4af')" id="hl-red" style="background:#fda4af;color:#9f1239;font-size:18px;">✏️</button>
-      <button onclick="toggleHighlight('#fde047')" id="hl-yellow" style="background:#fde047;color:#854d0e;font-size:18px;">✏️</button>
+      <button onmousedown="event.preventDefault(); toggleHighlight('#86efac')" id="hl-green" style="background:#86efac;color:#166534;font-size:18px;">✏️</button>
+<button onmousedown="event.preventDefault(); toggleHighlight('#fda4af')" id="hl-red" style="background:#fda4af;color:#9f1239;font-size:18px;">✏️</button>
+<button onmousedown="event.preventDefault(); toggleHighlight('#fde047')" id="hl-yellow" style="background:#fde047;color:#854d0e;font-size:18px;">✏️</button>
+<button onmousedown="event.preventDefault(); removeHighlight()" id="hl-clear" style="background:#ffffff;color:#334155;font-size:18px;border:1px solid var(--border);" title="مسح التظليل">🧼</button>
       
       <div class="action-buttons">
         <button onclick="togglePin()" id="pin-btn" style="background:none;border:1px solid var(--border);font-size:18px;cursor:pointer;padding:6px 12px;border-radius:8px;">📌 تثبيت</button>
@@ -398,15 +399,56 @@ function formatText(cmd,val=null){
 }
 
 function toggleHighlight(color){
-  const e = document.getElementById('note-content');
-  e.focus();
-  if(currentHighlight === color){
-    currentHighlight = null;
-  } else {
-    currentHighlight = color;
+  const selection = window.getSelection();
+  
+  if (selection && selection.rangeCount > 0 && selection.toString().length > 0) {
+    const range = selection.getRangeAt(0);
+    
+    const mark = document.createElement('mark');
+    mark.style.backgroundColor = color;
+    mark.style.color = 'inherit'; // للحفاظ على لون خط المستخدم (أزرق أو وردي)
+    
+    try {
+      mark.appendChild(range.extractContents());
+      range.insertNode(mark);
+    } catch (err) {
+      console.error("فشل التلوين المباشر:", err);
+    }
+    
+    selection.removeAllRanges();
   }
+  
+  currentHighlight = null; 
   resetHighlighterButtons();
-  applyUserColorDirectly();
+  setTimeout(saveCurrentNote, 100);
+}
+
+function removeHighlight() {
+  const selection = window.getSelection();
+  
+  if (selection && selection.rangeCount > 0 && selection.toString().length > 0) {
+    const range = selection.getRangeAt(0);
+    
+    // ابحث عما إذا كان النص المظلل مأخوذاً من داخل وسم <mark>
+    let container = selection.anchorNode;
+    while (container && container !== document.getElementById('note-content')) {
+      if (container.tagName === 'MARK') {
+        // نقوم بإخراج النص من داخل الـ mark وحذف الوسم تماماً
+        const parent = container.parentNode;
+        while (container.firstChild) {
+          parent.insertBefore(container.firstChild, container);
+        }
+        parent.removeChild(container);
+        break;
+      }
+      container = container.parentNode;
+    }
+    
+    // تنظيف وتأكيد بقاء ألوان المستخدم الافتراضية وحفظ الملاحظة فوراً
+    selection.removeAllRanges();
+    setTimeout(applyUserColorDirectly, 10);
+    setTimeout(saveCurrentNote, 100);
+  }
 }
 
 function resetHighlighterButtons(){
@@ -522,6 +564,7 @@ editor.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
       setTimeout(applyUserColorDirectly, 10);
     }
+    
   });
 
   editor.addEventListener('input', () => {
@@ -541,6 +584,8 @@ editor.addEventListener('keydown', (e) => {
   document.getElementById('new-title-input').addEventListener('keypress',e=>{
     if(e.key==='Enter') confirmNewNote();
   });
+
+
 }
 
 init();
