@@ -91,9 +91,9 @@ header { display:flex; justify-content:space-between; align-items:center; margin
       <button onclick="formatText('formatBlock','h2')">H2</button>
       <button onclick="formatText('bold')"><strong>B</strong></button>
       <button onclick="formatText('italic')"><em>I</em></button>
-     <button onmousedown="event.preventDefault(); toggleHighlight('#86efac')" id="hl-green" style="background:#86efac;color:#166534;font-size:18px;">✏️</button>
-<button onmousedown="event.preventDefault(); toggleHighlight('#fda4af')" id="hl-red" style="background:#fda4af;color:#9f1239;font-size:18px;">✏️</button>
-<button onmousedown="event.preventDefault(); toggleHighlight('#fde047')" id="hl-yellow" style="background:#fde047;color:#854d0e;font-size:18px;">✏️</button>
+      <button onclick="toggleHighlight('#86efac')" id="hl-green" style="background:#86efac;color:#166534;font-size:18px;">✏️</button>
+      <button onclick="toggleHighlight('#fda4af')" id="hl-red" style="background:#fda4af;color:#9f1239;font-size:18px;">✏️</button>
+      <button onclick="toggleHighlight('#fde047')" id="hl-yellow" style="background:#fde047;color:#854d0e;font-size:18px;">✏️</button>
       
       <div class="action-buttons">
         <button onclick="togglePin()" id="pin-btn" style="background:none;border:1px solid var(--border);font-size:18px;cursor:pointer;padding:6px 12px;border-radius:8px;">📌 تثبيت</button>
@@ -398,34 +398,15 @@ function formatText(cmd,val=null){
 }
 
 function toggleHighlight(color){
-  const selection = window.getSelection();
-  
-  // نتحقق أولاً أن المستخدم قام بتحديد نص بالفعل
-  if (selection && selection.rangeCount > 0 && selection.toString().length > 0) {
-    const range = selection.getRangeAt(0);
-    
-    // إنشاء عنصر خلفية (mark) وتلوينه باللون المطلوب
-    const mark = document.createElement('mark');
-    mark.style.backgroundColor = color;
-    mark.style.color = 'inherit'; // للحفاظ على لون خط المستخدم (أزرق أو وردي)
-    
-    try {
-      // استخراج النص المحدد ووضعه داخل الـ mark الملون
-      mark.appendChild(range.extractContents());
-      // إدخال الـ mark الملون في نفس مكان النص القديم بالضبط
-      range.insertNode(mark);
-    } catch (err) {
-      console.error("فشل التلوين المباشر:", err);
-    }
-    
-    // إزالة التحديد بعد التلوين بنجاح
-    selection.removeAllRanges();
+  const e = document.getElementById('note-content');
+  e.focus();
+  if(currentHighlight === color){
+    currentHighlight = null;
+  } else {
+    currentHighlight = color;
   }
-  
-  // تنظيف الهايلايتر وحفظ التغييرات فوراً في قاعدة البيانات
-  currentHighlight = null; 
   resetHighlighterButtons();
-  setTimeout(saveCurrentNote, 100);
+  applyUserColorDirectly();
 }
 
 function resetHighlighterButtons(){
@@ -496,9 +477,49 @@ function init(){
   editor.addEventListener('focus', () => { applyUserColorDirectly(); });
   editor.addEventListener('click', () => { applyUserColorDirectly(); });
   
-  editor.addEventListener('keydown', (e) => {
+editor.addEventListener('keydown', (e) => {
+    // 1. إذا ضغط المستخدم "مسافة" أو "حذف/BackSpace" أو "أزرار الحركة"
+    if (e.key === ' ' || e.key === 'Backspace' || e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+      const selection = window.getSelection();
+      if (selection && selection.rangeCount > 0) {
+        const container = selection.anchorNode.parentElement;
+        
+        // إذا كان مؤشر الكتابة يقف حالياً بداخل وسم تظليل (mark)
+        if (container && container.tagName === 'MARK') {
+          
+          // في حالة الضغط على مسافة: نمنع السلوك الافتراضي، ونضع المسافة "خارج" الهايلايتر وننقل المؤشر بعدها
+          if (e.key === ' ') {
+            e.preventDefault();
+            const textNode = document.createTextNode('\u00A0'); // مسافة فارغة نقية
+            container.parentNode.insertBefore(textNode, container.nextSibling);
+            
+            const range = document.createRange();
+            range.setStartAfter(textNode);
+            range.collapse(true);
+            selection.removeAllRanges();
+            selection.addRange(range);
+            
+            setTimeout(applyUserColorDirectly, 1);
+            return;
+          }
+          
+          // في حالة حذف النص بالكامل داخل الهايلايتر: نقوم بتنظيف المحرر من الوسم الفارغ فوراً
+          if (e.key === 'Backspace' && (container.textContent.trim().length <= 1 || container.innerHTML === '<br>')) {
+            setTimeout(() => {
+              if (container && container.parentNode) {
+                const parent = container.parentNode;
+                // استبدال الـ mark الفارغ بنص عادي فارغ لمنع بقاء اللون
+                const emptyText = document.createTextNode('');
+                parent.replaceChild(emptyText, container);
+                applyUserColorDirectly();
+              }
+            }, 10);
+          }
+        }
+      }
+    }
+
     if (e.key === 'Enter') {
-      // الانتظار الفوري لأجزاء من الثانية حتى ينزل السطر ثم تطبيق لون المستخدم فوراً
       setTimeout(applyUserColorDirectly, 10);
     }
   });
