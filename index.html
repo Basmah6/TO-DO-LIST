@@ -127,26 +127,9 @@ let notes = [], trash = [], currentNoteId = null, saveTimeout = null, currentUse
 const noteColorPalette = ['#f87171','#60a5fa','#34d399','#fbbf24','#a78bfa','#f472b6'];
 let noteColorIndex = 0;
 
-// تحميل + حفظ
-function loadData() {
-  const saved = localStorage.getItem('notes');
-  if (saved) notes = JSON.parse(saved);
-  const savedTrash = localStorage.getItem('trash');
-  if (savedTrash) trash = JSON.parse(savedTrash);
-  const u = localStorage.getItem('currentUser'); if (u) currentUser = u;
-  const t = localStorage.getItem('theme') || 'light'; applyTheme(t);
-}
-function saveNotes() { localStorage.setItem('notes', JSON.stringify(notes)); localStorage.setItem('trash', JSON.stringify(trash)); }
 
-function saveCurrentNote() {
-  if (!currentNoteId) return;
-  const note = notes.find(n => n.id === currentNoteId);
-  if (!note) return;
-  note.title = document.getElementById('note-title').value.trim() || 'ملاحظة بدون عنوان';
-  note.content = document.getElementById('note-content').innerHTML;
-  note.lastModified = Date.now();
-  saveNotes();
-}
+
+
 
 // عرض + تنسيق
 function formatDate(ts) { return new Date(ts).toLocaleDateString('ar-EG',{month:'short',day:'numeric',year:'numeric'}); }
@@ -155,62 +138,93 @@ function getPreview(html) {
   const d=document.createElement('div'); d.innerHTML=html; const t=d.textContent.trim();
   return t ? (t.length>110 ? t.substring(0,110)+'...' : t) : "لا يوجد محتوى بعد...";
 }
-function renderNotes() {
+function renderNotes(notesFromDB) {
+  notes = notesFromDB;
+
   const g = document.getElementById('notes-grid');
-  g.innerHTML = notes.length===0 ? `<div class="empty-state" style="grid-column:1/-1"><p>لا توجد ملاحظات بعد</p><button onclick="showNewNoteModal()" class="btn btn-primary" style="margin-top:10px">أنشئ أول ملاحظة</button></div>` : '';
-  [...notes].sort((a,b)=> (b.pinned?1:0) - (a.pinned?1:0) || b.lastModified - a.lastModified)
-    .forEach(n=>{
-      const c=document.createElement('div'); 
-      c.className='note-card' + (n.pinned ? ' pinned' : '');
-      if(n.color) c.style.borderLeftColor=n.color;
-      c.innerHTML=`<h3>${n.title||'ملاحظة بدون عنوان'}</h3><p class="preview">${getPreview(n.content)}</p><div class="card-footer"><span>${formatDate(n.lastModified)}</span></div>`;
-      c.onclick=()=>openNote(n.id); g.appendChild(c);
-    });
+  g.innerHTML = notes.length === 0
+    ? `<div class="empty-state" style="grid-column:1/-1"><p>لا توجد ملاحظات بعد</p><button onclick="showNewNoteModal()" class="btn btn-primary" style="margin-top:10px">أنشئ أول ملاحظة</button></div>`
+    : '';
+
+  notes.forEach(n => {
+    const c = document.createElement('div');
+    c.className = 'note-card' + (n.pinned ? ' pinned' : '');
+    if (n.color) c.style.borderLeftColor = n.color;
+
+    c.innerHTML = `
+      <h3>${n.title || 'ملاحظة بدون عنوان'}</h3>
+      <p class="preview">${getPreview(n.content)}</p>
+      <div class="card-footer"><span>${formatDate(n.lastModified)}</span></div>
+    `;
+
+    c.onclick = () => openNote(n.$id);
+    g.appendChild(c);
+  });
 }
+
 
 // ملاحظة جديدة + فتح
 function showNewNoteModal(){document.getElementById('new-note-modal').style.display='flex';setTimeout(()=>document.getElementById('new-title-input').focus(),100);}
 function hideNewNoteModal(){document.getElementById('new-note-modal').style.display='none';document.getElementById('new-title-input').value='';}
-function confirmNewNote(){
-  const title=document.getElementById('new-title-input').value.trim()||'ملاحظة جديدة';
+async function confirmNewNote() {
+  const title = document.getElementById('new-title-input').value.trim() || 'ملاحظة جديدة';
   const color = noteColorPalette[noteColorIndex % noteColorPalette.length];
   noteColorIndex++;
-  const note={id:Date.now().toString(36),title,content:'',lastModified:Date.now(),color, pinned:false};
-  notes.unshift(note); saveNotes(); hideNewNoteModal(); openNote(note.id);
+
+  await addNote(title, "", color, false);
+  hideNewNoteModal();
 }
 
 
-function openNote(id){
-  currentNoteId=id;
-  const note=notes.find(n=>n.id===id);
-  if(!note) return;
+
+async function openNote(id){
+  currentNoteId = id;
+
+  const note = await databases.getDocument('notes-db', 'notes', id);
+
   document.getElementById('home-screen').style.display='none';
   document.getElementById('editor-screen').style.display='block';
-  document.getElementById('note-title').value=note.title||'';
-  document.getElementById('note-content').innerHTML=note.content||'';
+
+  document.getElementById('note-title').value = note.title || '';
+  document.getElementById('note-content').innerHTML = note.content || '';
+
   updatePinButton();
   currentHighlight = null;
   resetHighlighterButtons();
-  setTimeout(()=>{ document.getElementById('note-content').focus(); },80);
+
+  setTimeout(()=> document.getElementById('note-content').focus(), 80);
 }
 
-function goBack(){
-  saveCurrentNote();
+
+async function goBack(){
+  if(currentNoteId){
+    await updateNote(currentNoteId, {
+      title: document.getElementById('note-title').value.trim() || 'ملاحظة بدون عنوان',
+      content: document.getElementById('note-content').innerHTML,
+      lastModified: Date.now()
+    });
+  }
+
   document.getElementById('editor-screen').style.display='none';
   document.getElementById('home-screen').style.display='block';
-  renderNotes();
+
+  loadNotes();
 }
+
 
 function deleteCurrentNote(){
   if(!currentNoteId) return;
-  openConfirmModal(()=>{
-    const note = notes.find(n=>n.id===currentNoteId);
-    if(note){ trash.unshift(note); notes=notes.filter(n=>n.id!==currentNoteId); saveNotes(); }
+
+  openConfirmModal(async ()=>{
+    await deleteNote(currentNoteId);
+
     document.getElementById('editor-screen').style.display='none';
     document.getElementById('home-screen').style.display='block';
-    renderNotes();
+
+    loadNotes();
   });
 }
+
 
 function showTrash(){
   const modal = document.getElementById('trash-modal');
@@ -243,32 +257,44 @@ function closeDeleteForeverModal(){ document.getElementById('delete-forever-moda
 function deleteForever(){ trash.splice(deleteForeverIndex,1); saveNotes(); closeDeleteForeverModal(); showTrash(); }
 
 // التثبيت
-function togglePin(){
-  const note = notes.find(n => n.id === currentNoteId);
-  if(!note) return;
-  note.pinned = !note.pinned;
+async function togglePin(){
+  const note = await databases.getDocument('notes-db', 'notes', currentNoteId);
+  const newPinned = !note.pinned;
+
+  await updateNote(currentNoteId, { pinned: newPinned });
+
   updatePinButton();
-  saveCurrentNote();
-  const msg = note.pinned ? 'تم التثبيت 📌' : 'تم إلغاء التثبيت';
+
+  const msg = newPinned ? 'تم التثبيت 📌' : 'تم إلغاء التثبيت';
   const temp = document.createElement('div');
   temp.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#111;color:white;padding:10px 20px;border-radius:8px;z-index:9999;';
   temp.textContent = msg;
   document.body.appendChild(temp);
   setTimeout(()=>temp.remove(),1500);
 }
-function updatePinButton(){
+
+
+async function updatePinButton(){
   const btn = document.getElementById('pin-btn');
-  const note = notes.find(n => n.id === currentNoteId);
-  btn.style.color = (note && note.pinned) ? '#eab308' : '#64748b';
-  btn.style.transform = (note && note.pinned) ? 'rotate(30deg)' : '';
+  const note = await databases.getDocument('notes-db', 'notes', currentNoteId);
+
+  btn.style.color = note.pinned ? '#eab308' : '#64748b';
+  btn.style.transform = note.pinned ? 'rotate(30deg)' : '';
 }
+
 
 // تنسيق
 function formatText(cmd,val=null){
   const e=document.getElementById('note-content'); e.focus();
   document.execCommand('styleWithCSS', false, true);
   document.execCommand(cmd,false,val);
-  setTimeout(saveCurrentNote,300);
+  setTimeout(async ()=>{
+  await updateNote(currentNoteId, {
+    content: document.getElementById('note-content').innerHTML,
+    lastModified: Date.now()
+  });
+}, 300);
+
 }
 
 // الهايلايتر
@@ -401,5 +427,69 @@ init();
     </div>
   </div>
 </div>
+
+<script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.0"></script>
+<script>
+  const client = new Appwrite.Client()
+    .setEndpoint('https://cloud.appwrite.io/v1')
+    .setProject('6a508022003195c92d28'); // Project ID حقك
+
+  const databases = new Appwrite.Databases(client);
+
+  async function loadNotes() {
+  try {
+    const res = await databases.listDocuments('notes-db', 'notes');
+    const notes = res.documents;
+    renderNotes(notes); // دالة عرض الملاحظات عندك
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+
+async function addNote(title, content, color, pinned) {
+  try {
+    await databases.createDocument('notes-db', 'notes', 'unique()', {
+      title,
+      content,
+      color,
+      pinned
+    });
+    loadNotes();
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+
+async function updateNote(id, data) {
+  try {
+    await databases.updateDocument('notes-db', 'notes', id, data);
+    loadNotes();
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+
+async function deleteNote(id) {
+  try {
+    await databases.deleteDocument('notes-db', 'notes', id);
+    loadNotes();
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+
+setInterval(loadNotes, 3000);
+
+
+loadNotes();
+
+</script>
+
+
+
 </body>
 </html>
