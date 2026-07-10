@@ -1,19 +1,170 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ملاحظاتي • Notes</title>
+<script src="https://cdn.jsdelivr.net/npm/appwrite@14.0.0"></script>
+<style>
+:root {
+  --bg: #f4f6f8;
+  --card-bg: #ffffff;
+  --text: #1f2937;
+  --accent: #3b82f6;
+  --border: #e5e7eb;
+  --toolbar-bg: #f8fafc;
+}
+body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--text); transition:background .3s,color .3s; }
+.container { max-width:1100px; margin:0 auto; padding:20px; }
+header { display:flex; justify-content:space-between; align-items:center; margin-bottom:30px; flex-wrap:wrap; gap:15px; }
+.greeting h1 { margin:0; font-size:28px; font-weight:700; }
+.datetime { font-size:14px; color:#64748b; margin-top:4px; }
+.switcher-group { display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+.theme-switcher { display:flex; gap:8px; }
+.theme-dot { width:28px; height:28px; border-radius:50%; cursor:pointer; border:2px solid #fff; box-shadow:0 0 0 1px #cbd5e1; transition:transform .2s; }
+.theme-dot:hover { transform:scale(1.1); }
+.user-selector { display:flex; gap:8px; }
+.user-btn { padding:6px 14px; border-radius:9999px; font-size:13px; font-weight:600; cursor:pointer; transition:all .2s; white-space:nowrap; border:2px solid transparent; background:#f1f5f9; color:#334155; }
+.user-btn.active { border-color:var(--accent); background:white; box-shadow:0 2px 6px rgba(0,0,0,.1); }
+.notes-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:16px; }
+.note-card { background:var(--card-bg); border-radius:16px; padding:18px; box-shadow:0 2px 8px rgba(0,0,0,.06); cursor:pointer; transition:all .2s; border-left:6px solid var(--accent); position:relative; }
+.note-card.pinned::before { content:"📌"; position:absolute; top:12px; left:12px; font-size:18px; }
+.note-card:hover { transform:translateY(-3px); box-shadow:0 8px 20px rgba(0,0,0,.1); }
+.note-card h3 { margin:0 0 10px 0; font-size:18px; font-weight:600; padding-left:28px; }
+.preview { color:#64748b; font-size:14px; line-height:1.5; margin:0 0 12px 0; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+.card-footer { display:flex; justify-content:space-between; font-size:12px; color:#94a3b8; }
+.card-user { font-weight:bold; color:var(--accent); }
+#editor-screen { max-width:900px; margin:0 auto; }
+.editor-header { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
+#note-title { flex:1; font-size:26px; font-weight:700; border:none; background:transparent; outline:none; color:var(--text); padding:8px 0; }
+.toolbar { display:flex; flex-wrap:wrap; gap:6px; background:var(--toolbar-bg); padding:10px; border-radius:12px; margin-bottom:12px; border:1px solid var(--border); }
+.toolbar button { background:white; border:1px solid var(--border); padding:8px 12px; border-radius:8px; cursor:pointer; font-size:15px; transition:all .2s; }
+.toolbar button:hover { background:#f1f5f9; border-color:var(--accent); }
+.toolbar button.active { background:#e0f2fe; border-color:#3b82f6; }
+.editor-content { background:var(--card-bg); min-height:65vh; padding:30px; border-radius:16px; box-shadow:0 2px 12px rgba(0,0,0,.06); font-size:17px; line-height:1.75; outline:none; border:1px solid var(--border); text-align: right; }
+.btn { padding:10px 20px; border-radius:10px; border:none; cursor:pointer; font-weight:600; transition:all .2s; }
+.btn-primary { background:var(--accent); color:white; }
+.empty-state { text-align:center; padding:60px 20px; color:#64748b; }
+.editor-content ul, .editor-content ol { padding-right: 25px; margin: 8px 0; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div id="home-screen">
+    <header>
+      <div class="greeting">
+        <h1 id="greeting-text"></h1>
+        <div class="datetime" id="datetime"></div>
+      </div>
+
+      <div style="display:flex; align-items:center; gap:15px; flex-wrap:wrap;">
+        <div class="switcher-group">
+          <div class="user-selector">
+            <div class="user-btn" id="user-nawaf" onclick="selectUser('nawaf')">نواف 🧑🏻‍🏫</div>
+            <div class="user-btn" id="user-basma" onclick="selectUser('basma')">بسمة 👩🏻‍💻</div>
+          </div>
+          <div class="theme-switcher">
+            <div class="theme-dot" style="background:#f8fafc;border-color:#cbd5e1" onclick="applyTheme('light')" title="أبيض"></div>
+            <div class="theme-dot" style="background:#bae6fd" onclick="applyTheme('blue')" title="أزرق"></div>
+            <div class="theme-dot" style="background:#1e2937" onclick="applyTheme('dark')" title="أسود"></div>
+            <div class="theme-dot" style="background:#fce7f3" onclick="applyTheme('pink')" title="وردي"></div>
+          </div>
+        </div>
+        <button onclick="showTrash()" style="padding:10px 20px;border-radius:10px;border:1px solid var(--border);background:var(--card-bg);cursor:pointer;font-weight:600;">🗑️ سلة المهملات</button>
+        <button onclick="showNewNoteModal()" class="btn btn-primary">+ ملاحظة جديدة</button>
+      </div>
+    </header>
+
+    <div id="notes-grid" class="notes-grid"></div>
+  </div>
+
+  <div id="editor-screen" style="display:none;">
+    <div class="editor-header">
+      <button onclick="goBack()" style="background:none;border:none;font-size:28px;cursor:pointer;padding:5px 12px;">←</button>
+      <input type="text" id="note-title" placeholder="عنوان الملاحظة" style="flex:1;">
+      <button onclick="togglePin()" id="pin-btn" style="background:none;border:none;font-size:24px;cursor:pointer;padding:5px 10px;">📌</button>
+      <button onclick="deleteCurrentNote()" style="background:#fee2e2;color:#b91c1c;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;">حذف</button>
+    </div>
+
+    <div class="toolbar">
+      <button onclick="formatText('formatBlock','h1')">H1</button>
+      <button onclick="formatText('formatBlock','h2')">H2</button>
+      <button onclick="formatText('bold')"><strong>B</strong></button>
+      <button onclick="formatText('italic')"><em>I</em></button>
+      <button onclick="toggleHighlight('#86efac')" id="hl-green" style="background:#86efac;color:#166534;font-size:18px;">✏️</button>
+      <button onclick="toggleHighlight('#fda4af')" id="hl-red" style="background:#fda4af;color:#9f1239;font-size:18px;">✏️</button>
+      <button onclick="toggleHighlight('#fde047')" id="hl-yellow" style="background:#fde047;color:#854d0e;font-size:18px;">✏️</button>
+    </div>
+
+    <div id="note-content" class="editor-content" contenteditable="true"></div>
+  </div>
+</div>
+
+<div id="trash-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center;" onclick="if(event.target.id==='trash-modal') this.style.display='none'">
+  <div style="background:var(--card-bg);padding:30px;border-radius:16px;width:90%;max-width:450px;max-height:70vh;overflow-y:auto;box-shadow:0 10px 30px rgba(0,0,0,.2);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <h3 style="margin:0;">🗑️ سلة المهملات</h3>
+      <button onclick="document.getElementById('trash-modal').style.display='none'" style="background:none;border:none;font-size:22px;cursor:pointer;">✕</button>
+    </div>
+    <div id="trash-list"></div>
+  </div>
+</div>
+
+<div id="new-note-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center;">
+  <div style="background:white;padding:30px;border-radius:16px;width:90%;max-width:400px;box-shadow:0 10px 30px rgba(0,0,0,.2);">
+    <h3 style="margin-top:0;">ملاحظة جديدة</h3>
+    <input type="text" id="new-title-input" placeholder="أدخل عنوان الملاحظة" style="width:100%;padding:12px;font-size:16px;border:1px solid #ddd;border-radius:10px;margin:15px 0;">
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button onclick="hideNewNoteModal()" style="padding:10px 20px;border-radius:8px;border:1px solid #ddd;background:white;cursor:pointer;">إلغاء</button>
+      <button onclick="confirmNewNote()" class="btn btn-primary">إنشاء</button>
+    </div>
+  </div>
+</div>
+
+<div id="confirm-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);z-index:2000;align-items:center;justify-content:center;">
+  <div style="background:white;padding:32px;border-radius:20px;width:90%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,.3);text-align:center;">
+    <div style="font-size:48px;margin-bottom:12px;">🗑️</div>
+    <h3 style="margin:0 0 12px;color:#1f2937;font-size:20px;">هل أنت متأكد؟</h3>
+    <p style="color:#64748b;margin:0 0 24px;line-height:1.7;">سيتم نقل الملاحظة إلى سلة المهملات.</p>
+    <div style="display:flex;gap:10px;justify-content:center;">
+      <button onclick="closeConfirmModal()" style="padding:10px 24px;border-radius:10px;border:1px solid #e5e7eb;background:white;cursor:pointer;font-size:15px;font-weight:600;">إلغاء</button>
+      <button onclick="confirmAction()" style="padding:10px 24px;border-radius:10px;border:none;background:#3b82f6;color:white;cursor:pointer;font-size:15px;font-weight:600;">تأكيد</button>
+    </div>
+  </div>
+</div>
+
+<div id="delete-forever-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);z-index:2000;align-items:center;justify-content:center;">
+  <div style="background:white;padding:32px;border-radius:20px;width:90%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,.3);text-align:center;">
+    <div style="font-size:48px;margin-bottom:12px;">⚠️</div>
+    <h3 style="margin:0 0 12px;color:#b91c1c;font-size:20px;">حذف نهائي</h3>
+    <p style="color:#64748b;margin:0 0 24px;line-height:1.7;">هل أنت متأكد أنك ستحذف الملاحظة للأبد؟<br>لا يمكن استرجاعها بعد ذلك.</p>
+    <div style="display:flex;gap:10px;justify-content:center;">
+      <button onclick="closeDeleteForeverModal()" style="padding:10px 24px;border-radius:10px;border:1px solid #e5e7eb;background:white;cursor:pointer;font-size:15px;font-weight:600;">إلغاء</button>
+      <button onclick="deleteForever()" style="padding:10px 24px;border-radius:10px;border:none;background:#b91c1c;color:white;cursor:pointer;font-size:15px;font-weight:600;">حذف نهائي</button>
+    </div>
+  </div>
+</div>
+
+<script>
 // ==================== إعدادات Appwrite المربوطة بمشروعك تلقائياً ====================
 const { Client, Databases } = Appwrite;
 const client = new Client();
 client
     .setEndpoint('https://cloud.appwrite.io/v1')
-    .setProject('6a5091df001eac425602'); 
+    .setProject('6a5091df001eac425602'); // تم التحديث بناءً على حسابك
 
 const databases = new Databases(client);
-const DATABASE_ID = '6a5093690027ac5f6daa';      
+const DATABASE_ID = '6a5093690027ac5f6daa';      // تم التحديث بناءً على حسابك
 const NOTES_COLLECTION_ID = 'notes'; 
 const TRASH_COLLECTION_ID = 'trash'; 
 
+// ==================== البيانات والمنطق المحلي ====================
 let notes = [], trash = [], currentNoteId = null, saveTimeout = null, currentUser = 'nawaf', currentHighlight = null;
 const noteColorPalette = ['#f87171','#60a5fa','#34d399','#fbbf24','#a78bfa','#f472b6'];
 let noteColorIndex = 0;
 
+// تحميل البيانات من السحابة
 async function loadData() {
   try {
     const resNotes = await databases.listDocuments(DATABASE_ID, NOTES_COLLECTION_ID);
@@ -32,6 +183,7 @@ async function loadData() {
   }
 }
 
+// حفظ فوري للملاحظة الحالية بالسحابة
 function saveCurrentNote() {
   if (!currentNoteId) return;
   const note = notes.find(n => n.id === currentNoteId);
@@ -50,6 +202,7 @@ function saveCurrentNote() {
   }).catch(err => console.error("فشل المزامنة الفورية:", err));
 }
 
+// الاستماع الفوري للتغييرات Realtime
 function setupRealtimeListener() {
   client.subscribe(`databases.${DATABASE_ID}.collections.${NOTES_COLLECTION_ID}.documents`, response => {
     loadData();
@@ -59,6 +212,7 @@ function setupRealtimeListener() {
   });
 }
 
+// عرض وتنسيق القائمة
 function formatDate(ts) { return new Date(ts).toLocaleDateString('ar-EG',{month:'short',day:'numeric',year:'numeric'}); }
 function getPreview(html) {
   if (!html) return "لا يوجد محتوى بعد...";
@@ -268,11 +422,13 @@ function updateUserUI(){
   document.getElementById('user-nawaf').classList.toggle('active',currentUser==='nawaf');
   document.getElementById('user-basma').classList.toggle('active',currentUser==='basma');
 }
+function applyUserStyleToEditor() {}
 
 function selectUser(user){
   currentUser = user;
   localStorage.setItem('currentUser', user);
   updateUserUI();
+  applyUserStyleToEditor();
 }
 
 function updateGreetingAndTime(){
@@ -282,7 +438,7 @@ function updateGreetingAndTime(){
   document.getElementById('datetime').innerHTML=`${now.toLocaleDateString('ar-EG',{weekday:'long',month:'long',day:'numeric'})}<br>${now.toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'})}`;
 }
 
-// البدء والتحكم الذكي بالخطوط وتفادي التقطيع السطري على الهواتف
+// بدء التشغيل
 function init(){
   loadData();
   setupRealtimeListener();
@@ -292,30 +448,51 @@ function init(){
 
   const editor = document.getElementById('note-content');
 
-  // آلية الإدخال الذكية المحدثة لضمان تشابك الحروف واللغة العربية
-  editor.addEventListener('keydown', (e) => {
-    if (e.key === ' ' || e.key === 'Enter') {
+  // منطق المعالجة الذكي الخاص بك لحروف وقوائم المستخدمين
+  editor.addEventListener('keydown', (e) => {});
+
+  editor.addEventListener('beforeinput', (e) => {
+    if (e.inputType === 'insertText' && e.data) {
+      e.preventDefault();
       const sel = window.getSelection();
       if (!sel.rangeCount) return;
       const range = sel.getRangeAt(0);
-      
-      // تطبيق لون المستخدم الحالي على الكلمة السابقة عند إنهاء إدخالها
+      range.deleteContents();
+
       const userColor = currentUser === 'nawaf' ? '#1e40af' : '#9f1239';
-      document.execCommand('styleWithCSS', false, true);
-      document.execCommand('foreColor', false, userColor);
-      
-      if (currentHighlight) {
-        document.execCommand('backColor', false, currentHighlight);
+      let node;
+
+      if (e.data === ' ') {
+        node = document.createTextNode('\u00A0');
+      } else if (currentHighlight) {
+        node = document.createElement('span');
+        node.style.color = userColor;
+        node.style.backgroundColor = currentHighlight;
+        node.textContent = e.data;
       } else {
-        document.execCommand('backColor', false, 'transparent');
+        node = document.createElement('span');
+        node.style.color = userColor;
+        node.textContent = e.data;
       }
+
+      range.insertNode(node);
+      range.setStartAfter(node);
+      range.setEndAfter(node);
+      sel.removeAllRanges();
+      sel.addRange(range);
+      
+      clearTimeout(saveTimeout);
+      saveTimeout = setTimeout(saveCurrentNote, 500);
     }
   });
 
-  editor.addEventListener('input', () => {
+  editor.addEventListener('input',()=>{
     clearTimeout(saveTimeout); 
-    saveTimeout = setTimeout(saveCurrentNote, 1000); // حفظ تلقائي ذكي بعد التوقف عن الكتابة بثانية
+    saveTimeout=setTimeout(saveCurrentNote,700);
   });
+  
+  editor.addEventListener('click',()=>{});
+  editor.addEventListener('focus', () => {});
 
   document.getElementById('note-title').addEventListener('input',()=>{
     clearTimeout(saveTimeout);
@@ -333,3 +510,5 @@ function init(){
 
 init();
 </script>
+</body>
+</html>
