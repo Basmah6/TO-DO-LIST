@@ -147,24 +147,22 @@ header { display:flex; justify-content:space-between; align-items:center; margin
 </div>
 
 <script>
-// ==================== إعدادات Appwrite المربوطة بمشروعك تلقائياً ====================
+  // ==================== إعدادات Appwrite المربوطة بمشروعك تلقائياً ====================
 const { Client, Databases } = Appwrite;
 const client = new Client();
 client
     .setEndpoint('https://cloud.appwrite.io/v1')
-    .setProject('6a5091df001eac425602'); // تم التحديث بناءً على حسابك
+    .setProject('6a5091df001eac425602'); 
 
 const databases = new Databases(client);
-const DATABASE_ID = '6a5093690027ac5f6daa';      // تم التحديث بناءً على حسابك
+const DATABASE_ID = '6a5093690027ac5f6daa';      
 const NOTES_COLLECTION_ID = 'notes'; 
 const TRASH_COLLECTION_ID = 'trash'; 
 
-// ==================== البيانات والمنطق المحلي ====================
 let notes = [], trash = [], currentNoteId = null, saveTimeout = null, currentUser = 'nawaf', currentHighlight = null;
 const noteColorPalette = ['#f87171','#60a5fa','#34d399','#fbbf24','#a78bfa','#f472b6'];
 let noteColorIndex = 0;
 
-// تحميل البيانات من السحابة
 async function loadData() {
   try {
     const resNotes = await databases.listDocuments(DATABASE_ID, NOTES_COLLECTION_ID);
@@ -183,7 +181,6 @@ async function loadData() {
   }
 }
 
-// حفظ فوري للملاحظة الحالية بالسحابة
 function saveCurrentNote() {
   if (!currentNoteId) return;
   const note = notes.find(n => n.id === currentNoteId);
@@ -202,7 +199,6 @@ function saveCurrentNote() {
   }).catch(err => console.error("فشل المزامنة الفورية:", err));
 }
 
-// الاستماع الفوري للتغييرات Realtime
 function setupRealtimeListener() {
   client.subscribe(`databases.${DATABASE_ID}.collections.${NOTES_COLLECTION_ID}.documents`, response => {
     loadData();
@@ -212,7 +208,6 @@ function setupRealtimeListener() {
   });
 }
 
-// عرض وتنسيق القائمة
 function formatDate(ts) { return new Date(ts).toLocaleDateString('ar-EG',{month:'short',day:'numeric',year:'numeric'}); }
 function getPreview(html) {
   if (!html) return "لا يوجد محتوى بعد...";
@@ -422,13 +417,11 @@ function updateUserUI(){
   document.getElementById('user-nawaf').classList.toggle('active',currentUser==='nawaf');
   document.getElementById('user-basma').classList.toggle('active',currentUser==='basma');
 }
-function applyUserStyleToEditor() {}
 
 function selectUser(user){
   currentUser = user;
   localStorage.setItem('currentUser', user);
   updateUserUI();
-  applyUserStyleToEditor();
 }
 
 function updateGreetingAndTime(){
@@ -438,7 +431,7 @@ function updateGreetingAndTime(){
   document.getElementById('datetime').innerHTML=`${now.toLocaleDateString('ar-EG',{weekday:'long',month:'long',day:'numeric'})}<br>${now.toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'})}`;
 }
 
-// بدء التشغيل
+// البدء والتحكم الذكي بالخطوط وتفادي التقطيع السطري على الهواتف
 function init(){
   loadData();
   setupRealtimeListener();
@@ -448,51 +441,30 @@ function init(){
 
   const editor = document.getElementById('note-content');
 
-  // منطق المعالجة الذكي الخاص بك لحروف وقوائم المستخدمين
-  editor.addEventListener('keydown', (e) => {});
-
-  editor.addEventListener('beforeinput', (e) => {
-    if (e.inputType === 'insertText' && e.data) {
-      e.preventDefault();
+  // آلية الإدخال الذكية المحدثة لضمان تشابك الحروف واللغة العربية
+  editor.addEventListener('keydown', (e) => {
+    if (e.key === ' ' || e.key === 'Enter') {
       const sel = window.getSelection();
       if (!sel.rangeCount) return;
       const range = sel.getRangeAt(0);
-      range.deleteContents();
-
-      const userColor = currentUser === 'nawaf' ? '#1e40af' : '#9f1239';
-      let node;
-
-      if (e.data === ' ') {
-        node = document.createTextNode('\u00A0');
-      } else if (currentHighlight) {
-        node = document.createElement('span');
-        node.style.color = userColor;
-        node.style.backgroundColor = currentHighlight;
-        node.textContent = e.data;
-      } else {
-        node = document.createElement('span');
-        node.style.color = userColor;
-        node.textContent = e.data;
-      }
-
-      range.insertNode(node);
-      range.setStartAfter(node);
-      range.setEndAfter(node);
-      sel.removeAllRanges();
-      sel.addRange(range);
       
-      clearTimeout(saveTimeout);
-      saveTimeout = setTimeout(saveCurrentNote, 500);
+      // تطبيق لون المستخدم الحالي على الكلمة السابقة عند إنهاء إدخالها
+      const userColor = currentUser === 'nawaf' ? '#1e40af' : '#9f1239';
+      document.execCommand('styleWithCSS', false, true);
+      document.execCommand('foreColor', false, userColor);
+      
+      if (currentHighlight) {
+        document.execCommand('backColor', false, currentHighlight);
+      } else {
+        document.execCommand('backColor', false, 'transparent');
+      }
     }
   });
 
-  editor.addEventListener('input',()=>{
+  editor.addEventListener('input', () => {
     clearTimeout(saveTimeout); 
-    saveTimeout=setTimeout(saveCurrentNote,700);
+    saveTimeout = setTimeout(saveCurrentNote, 1000); // حفظ تلقائي ذكي بعد التوقف عن الكتابة بثانية
   });
-  
-  editor.addEventListener('click',()=>{});
-  editor.addEventListener('focus', () => {});
 
   document.getElementById('note-title').addEventListener('input',()=>{
     clearTimeout(saveTimeout);
@@ -510,5 +482,6 @@ function init(){
 
 init();
 </script>
+
 </body>
 </html>
