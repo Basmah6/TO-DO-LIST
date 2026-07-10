@@ -91,7 +91,7 @@ header { display:flex; justify-content:space-between; align-items:center; margin
       <button onclick="formatText('formatBlock','h2')">H2</button>
       <button onclick="formatText('bold')"><strong>B</strong></button>
       <button onclick="formatText('italic')"><em>I</em></button>
-      <button onmousedown="event.preventDefault(); toggleHighlight('#86efac')" id="hl-green" style="background:#86efac;color:#166534;font-size:18px;">✏️</button>
+    <button onmousedown="event.preventDefault(); toggleHighlight('#86efac')" id="hl-green" style="background:#86efac;color:#166534;font-size:18px;">✏️</button>
 <button onmousedown="event.preventDefault(); toggleHighlight('#fda4af')" id="hl-red" style="background:#fda4af;color:#9f1239;font-size:18px;">✏️</button>
 <button onmousedown="event.preventDefault(); toggleHighlight('#fde047')" id="hl-yellow" style="background:#fde047;color:#854d0e;font-size:18px;">✏️</button>
 <button onmousedown="event.preventDefault(); removeHighlight()" id="hl-clear" style="background:#ffffff;color:#334155;font-size:18px;border:1px solid var(--border);" title="مسح التظليل">🧼</button>
@@ -401,23 +401,28 @@ function formatText(cmd,val=null){
 function toggleHighlight(color){
   const selection = window.getSelection();
   
+  // التحقق من أن المستخدم حدد نصاً بالفعل قبل الضغط
   if (selection && selection.rangeCount > 0 && selection.toString().length > 0) {
     const range = selection.getRangeAt(0);
     
+    // إنشاء عنصر التظليل
     const mark = document.createElement('mark');
     mark.style.backgroundColor = color;
-    mark.style.color = 'inherit'; // للحفاظ على لون خط المستخدم (أزرق أو وردي)
+    mark.style.color = 'inherit'; // الحفاظ على لون خط المستخدم (أزرق لنواف / وردي لبسمة)
     
     try {
+      // قص النص المحدد ووضعه داخل الـ mark الملون
       mark.appendChild(range.extractContents());
       range.insertNode(mark);
     } catch (err) {
-      console.error("فشل التلوين المباشر:", err);
+      console.error("فشل التلوين الفوري:", err);
     }
     
+    // إلغاء التحديد فوراً بعد التلوين ليقفل الهايلايتر مفعوله
     selection.removeAllRanges();
   }
   
+  // إنهاء مفعول الهايلايتر تماماً وحفظ التغييرات
   currentHighlight = null; 
   resetHighlighterButtons();
   setTimeout(saveCurrentNote, 100);
@@ -426,15 +431,15 @@ function toggleHighlight(color){
 function removeHighlight() {
   const selection = window.getSelection();
   
+  // التحقق من أن المستخدم حدد النص المُراد مسحه قبل الضغط
   if (selection && selection.rangeCount > 0 && selection.toString().length > 0) {
-    const range = selection.getRangeAt(0);
-    
-    // ابحث عما إذا كان النص المظلل مأخوذاً من داخل وسم <mark>
     let container = selection.anchorNode;
+    
+    // البحث عن وسم الـ <mark> الملون الذي يقع بداخل التحديد
     while (container && container !== document.getElementById('note-content')) {
       if (container.tagName === 'MARK') {
-        // نقوم بإخراج النص من داخل الـ mark وحذف الوسم تماماً
         const parent = container.parentNode;
+        // إخراج النص خارج الـ mark وحذف الوسم تماماً
         while (container.firstChild) {
           parent.insertBefore(container.firstChild, container);
         }
@@ -444,8 +449,10 @@ function removeHighlight() {
       container = container.parentNode;
     }
     
-    // تنظيف وتأكيد بقاء ألوان المستخدم الافتراضية وحفظ الملاحظة فوراً
+    // إلغاء التحديد فوراً بعد المسح لتتوقف الممسحة عن العمل
     selection.removeAllRanges();
+    
+    // إعادة فرض استقرار ألوان الخط وحفظ الملاحظة
     setTimeout(applyUserColorDirectly, 10);
     setTimeout(saveCurrentNote, 100);
   }
