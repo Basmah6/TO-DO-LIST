@@ -138,12 +138,19 @@ function getPreview(html) {
   const d=document.createElement('div'); d.innerHTML=html; const t=d.textContent.trim();
   return t ? (t.length>110 ? t.substring(0,110)+'...' : t) : "لا يوجد محتوى بعد...";
 }
+
+
 function renderNotes(notesFromDB) {
   notes = notesFromDB;
 
   const g = document.getElementById('notes-grid');
   g.innerHTML = notes.length === 0
-    ? `<div class="empty-state" style="grid-column:1/-1"><p>لا توجد ملاحظات بعد</p><button onclick="showNewNoteModal()" class="btn btn-primary" style="margin-top:10px">أنشئ أول ملاحظة</button></div>`
+    ? `<div class="empty-state" style="grid-column:1/-1">
+         <p>لا توجد ملاحظات بعد</p>
+         <button onclick="showNewNoteModal()" class="btn btn-primary" style="margin-top:10px">
+           أنشئ أول ملاحظة
+         </button>
+       </div>`
     : '';
 
   notes.forEach(n => {
@@ -163,9 +170,11 @@ function renderNotes(notesFromDB) {
 }
 
 
+
 // ملاحظة جديدة + فتح
 function showNewNoteModal(){document.getElementById('new-note-modal').style.display='flex';setTimeout(()=>document.getElementById('new-title-input').focus(),100);}
 function hideNewNoteModal(){document.getElementById('new-note-modal').style.display='none';document.getElementById('new-title-input').value='';}
+
 async function confirmNewNote() {
   const title = document.getElementById('new-title-input').value.trim() || 'ملاحظة جديدة';
   const color = noteColorPalette[noteColorIndex % noteColorPalette.length];
@@ -177,13 +186,14 @@ async function confirmNewNote() {
 
 
 
+
 async function openNote(id){
   currentNoteId = id;
 
   const note = await databases.getDocument('notes-db', 'notes', id);
 
-  document.getElementById('home-screen').style.display='none';
-  document.getElementById('editor-screen').style.display='block';
+  document.getElementById('home-screen').style.display = 'none';
+  document.getElementById('editor-screen').style.display = 'block';
 
   document.getElementById('note-title').value = note.title || '';
   document.getElementById('note-content').innerHTML = note.content || '';
@@ -192,12 +202,15 @@ async function openNote(id){
   currentHighlight = null;
   resetHighlighterButtons();
 
-  setTimeout(()=> document.getElementById('note-content').focus(), 80);
+  setTimeout(() => {
+    document.getElementById('note-content').focus();
+  }, 80);
 }
 
 
+
 async function goBack(){
-  if(currentNoteId){
+  if (currentNoteId) {
     await updateNote(currentNoteId, {
       title: document.getElementById('note-title').value.trim() || 'ملاحظة بدون عنوان',
       content: document.getElementById('note-content').innerHTML,
@@ -205,11 +218,12 @@ async function goBack(){
     });
   }
 
-  document.getElementById('editor-screen').style.display='none';
-  document.getElementById('home-screen').style.display='block';
+  document.getElementById('editor-screen').style.display = 'none';
+  document.getElementById('home-screen').style.display = 'block';
 
   loadNotes();
 }
+
 
 
 function deleteCurrentNote(){
@@ -348,18 +362,12 @@ function updateGreetingAndTime(){
 
 // بدء التشغيل
 function init(){
-  loadData();
   updateGreetingAndTime();
-  setInterval(updateGreetingAndTime,60000);
-  renderNotes();
+  setInterval(updateGreetingAndTime, 60000);
   updateUserUI();
 
   const editor = document.getElementById('note-content');
-  
-  // معالجة الأزرار والإنتر بحذر ذكي يضمن تكرار وتوالي عناصر القائمة الفأرغة
-  editor.addEventListener('keydown', (e) => {});
 
-  // معالجة الكتابة: لف كل حرف في span بلون المستخدم الحالي
   editor.addEventListener('beforeinput', (e) => {
     if (e.inputType === 'insertText' && e.data) {
       e.preventDefault();
@@ -389,19 +397,45 @@ function init(){
       range.setEndAfter(node);
       sel.removeAllRanges();
       sel.addRange(range);
-      clearTimeout(saveTimeout);
-      saveTimeout = setTimeout(saveCurrentNote, 500);
     }
   });
 
-  editor.addEventListener('input',()=>{clearTimeout(saveTimeout); saveTimeout=setTimeout(saveCurrentNote,700);});
-  editor.addEventListener('click',()=>{});
-  editor.addEventListener('focus', () => {});
+  editor.addEventListener('input', () => {
+    clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(async () => {
+      if (currentNoteId) {
+        await updateNote(currentNoteId, {
+          content: document.getElementById('note-content').innerHTML,
+          lastModified: Date.now()
+        });
+      }
+    }, 700);
+  });
 
-  document.getElementById('note-title').addEventListener('input',()=>{clearTimeout(saveTimeout);saveTimeout=setTimeout(saveCurrentNote,600);});
-  document.getElementById('new-note-modal').addEventListener('click',e=>{if(e.target.id==='new-note-modal')hideNewNoteModal();});
-  document.getElementById('new-title-input').addEventListener('keypress',e=>{if(e.key==='Enter')confirmNewNote();});
+  document.getElementById('note-title').addEventListener('input', () => {
+    clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(async () => {
+      if (currentNoteId) {
+        await updateNote(currentNoteId, {
+          title: document.getElementById('note-title').value.trim() || 'ملاحظة بدون عنوان',
+          lastModified: Date.now()
+        });
+      }
+    }, 600);
+  });
+
+  document.getElementById('new-note-modal').addEventListener('click', e => {
+    if (e.target.id === 'new-note-modal') hideNewNoteModal();
+  });
+
+  document.getElementById('new-title-input').addEventListener('keypress', e => {
+    if (e.key === 'Enter') confirmNewNote();
+  });
+
+  loadNotes();
 }
+init();
+
 init();
 </script>
 <div id="confirm-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);z-index:2000;align-items:center;justify-content:center;">
