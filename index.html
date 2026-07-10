@@ -399,20 +399,31 @@ function formatText(cmd,val=null){
 
 function toggleHighlight(color){
   const e = document.getElementById('note-content');
-  e.focus();
   
-  // التحقق مما إذا كان المستخدم قد حدد (ظلل) نصاً بالفعل داخل المحرر
+  // الحصول على النص المحدد حالياً
   const selection = window.getSelection();
-  if (selection && selection.toString().length > 0) {
+  
+  if (selection && selection.rangeCount > 0 && selection.toString().length > 0) {
+    // حفظ التحديد الحالي في ذاكرة المتصفح
+    const range = selection.getRangeAt(0);
+    
+    // إعادة التركيز على صندوق الملاحظة
+    e.focus();
+    
+    // إعادة تثبيت التحديد المحفوظ لضمان عدم ضياعه بسبب ضغطة الزر
+    selection.removeAllRanges();
+    selection.addRange(range);
+    
+    // إرسال أمر التلوين فوراً للنص المحدد
     document.execCommand('styleWithCSS', false, true);
     document.execCommand('backColor', false, color);
   }
   
-  // نلغي أي حالة اختيار مستمرة حتى لا يؤثر على الأحرف القادمة
+  // إلغاء أي حالة اختيار مستمرة والتنظيف لمنع أي مشاكل وراثة ألوان أثناء الكتابة اللاحقة
   currentHighlight = null; 
   resetHighlighterButtons();
   
-  // إعادة فرض لون المستخدم (أزرق/وردي) للتأكيد
+  // إعادة فرض لون الخط الخاص بنواف أو بسمة (أزرق/وردي) للكتابة القادمة
   setTimeout(applyUserColorDirectly, 10);
 }
 
