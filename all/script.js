@@ -1,6 +1,6 @@
 // --- إعدادات Supabase (ضعي بيانات مشروعك هنا) ---
-const SUPABASE_URL = 'https://jhvmlsmntnhrjliadfib.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impodm1sc21udG5ocmpsaWFkZmliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyNjc1MzcsImV4cCI6MjEwMDg0MzUzN30.YC7R7HW6TMK_9njv1zMivv-mprS7bWHqAJy65OX69mc';
+const SUPABASE_URL = 'https://chmbwybydjrncnzdyulg.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNobWJ3eWJ5ZGpybmNuemR5dWxnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyOTA0MTUsImV4cCI6MjEwMDg2NjQxNX0.B9ssUbJOv-QBEbJpMgcBYjp8xWgTP8UiH6y6u0TMN2A';
 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -391,16 +391,22 @@ function render() {
   }
 }
 
-// --- Supabase Actions (Database Operations) ---
+// --- Supabase Actions (Database Operations Fixed) ---
 async function addTask(text) {
   const trimmed = text.trim();
   if (!trimmed) return;
 
-  const { error } = await supabaseClient
+  const { data, error } = await supabaseClient
     .from('tasks')
-    .insert([{ text: trimmed, completed: false }]);
+    .insert([{ text: trimmed, completed: false }])
+    .select();
 
-  if (error) console.error('Error adding task:', error);
+  if (error) {
+    console.error('Error adding task:', error.message);
+    alert('حدث خطأ أثناء إضافة المهمة: ' + error.message);
+  } else {
+    console.log('Task added successfully:', data);
+  }
 }
 
 async function toggleTask(id) {
@@ -415,7 +421,7 @@ async function toggleTask(id) {
     .update({ completed: newCompleted })
     .eq('id', id);
 
-  // تحديث كافة المهام الفرعية التابعة لها لتتطابق مع حالتها
+  // تحديث كافة المهام الفرعية التابعة لها
   await supabaseClient
     .from('subtasks')
     .update({ completed: newCompleted })
@@ -466,13 +472,11 @@ async function toggleSubtask(taskId, subtaskId) {
 
   const newSubCompleted = !subtask.completed;
 
-  // تحديث المهمة الفرعية
   await supabaseClient
     .from('subtasks')
     .update({ completed: newSubCompleted })
     .eq('id', subtaskId);
 
-  // التحقق مما إذا كانت جميع المهام الفرعية أصبحت منجزة لتحديث الرئيسية تلقائياً
   const updatedSubtasks = task.subtasks.map(st => 
     st.id === subtaskId ? { ...st, completed: newSubCompleted } : st
   );
