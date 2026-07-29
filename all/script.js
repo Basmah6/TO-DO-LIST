@@ -1,4 +1,4 @@
-// --- إعدادات Supabase (ضعي بيانات مشروعك هنا) ---
+// --- إعدادات Supabase ---
 const SUPABASE_URL = 'https://chmbwybydjrncnzdyulg.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNobWJ3eWJ5ZGpybmNuemR5dWxnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyOTA0MTUsImV4cCI6MjEwMDg2NjQxNX0.B9ssUbJOv-QBEbJpMgcBYjp8xWgTP8UiH6y6u0TMN2A';
 
@@ -26,18 +26,15 @@ const ICONS = {
 // Application State
 let userName = 'Nawaf';
 let tasks = [];
-let filter = 'all'; // 'all' | 'active' | 'completed'
+let filter = 'all';
 let editingId = null;
 let addingSubtaskForId = null;
-let isEditingName = false;
 
-// Helper: Check if Basmah
 function isBasmahUser(name) {
   const n = (name || '').trim().toLowerCase();
-  return n.includes('basmah') || name.includes('بسمة') || name.includes('بسمه');
+  return n.includes('basmah') || n.includes('بسمة') || n.includes('بسمه');
 }
 
-// Storage Functions (Username only)
 function loadUserName() {
   try {
     return localStorage.getItem(USERNAME_STORAGE_KEY) || 'Nawaf';
@@ -54,10 +51,9 @@ function saveUserName(name) {
   }
 }
 
-// --- Supabase Data Fetching & Sync ---
+// --- Supabase Data Fetching ---
 async function fetchTasksFromSupabase() {
   try {
-    // جلب المهام الرئيسية
     const { data: dbTasks, error: taskError } = await supabaseClient
       .from('tasks')
       .select('*')
@@ -65,18 +61,17 @@ async function fetchTasksFromSupabase() {
 
     if (taskError) throw taskError;
 
-    // جلب المهام الفرعية
     const { data: dbSubtasks, error: subError } = await supabaseClient
       .from('subtasks')
       .select('*');
 
     if (subError) throw subError;
 
-    // دمج المهام الرئيسية مع الفرعية الخاصة بها
     tasks = (dbTasks || []).map(t => ({
       id: t.id,
       text: t.text,
       completed: t.completed,
+      createdBy: t.created_by || 'Nawaf',
       createdAt: new Date(t.created_at).getTime(),
       subtasks: (dbSubtasks || [])
         .filter(st => st.task_id === t.id)
@@ -89,7 +84,6 @@ async function fetchTasksFromSupabase() {
   }
 }
 
-// Date Formatter
 function getFormattedDate() {
   return new Date().toLocaleDateString('en-US', {
     weekday: 'long',
@@ -142,48 +136,13 @@ function render() {
     if (bannerPill) bannerPill.remove();
   }
 
+  // إزالة إمكانية التعديل وجعل الاسم ثابت تماماً
   const greetingBox = document.getElementById('greeting-box');
-  if (isEditingName) {
-    greetingBox.innerHTML = `
-      <div class="name-edit-box">
-        <input type="text" id="name-input" class="name-input" value="${escapeHtml(userName)}" />
-        <button id="save-name-btn" class="name-save-btn" title="Save name">${ICONS.check}</button>
-      </div>
-    `;
-    const nameInput = document.getElementById('name-input');
-    nameInput.focus();
-    nameInput.select();
-
-    const handleSave = () => {
-      const trimmed = nameInput.value.trim();
-      if (trimmed) {
-        userName = trimmed;
-        saveUserName(userName);
-      }
-      isEditingName = false;
-      render();
-    };
-
-    document.getElementById('save-name-btn').onclick = handleSave;
-    nameInput.onkeydown = (e) => {
-      if (e.key === 'Enter') handleSave();
-      if (e.key === 'Escape') {
-        isEditingName = false;
-        render();
-      }
-    };
-  } else {
-    greetingBox.innerHTML = `
-      <div class="greeting-title" id="trigger-edit-name" title="Click to edit name">
-        Hello, <span class="username-highlight">${escapeHtml(userName)}</span>
-        <span class="edit-icon">${ICONS.edit}</span>
-      </div>
-    `;
-    document.getElementById('trigger-edit-name').onclick = () => {
-      isEditingName = true;
-      render();
-    };
-  }
+  greetingBox.innerHTML = `
+    <div class="greeting-title">
+      Hello, <span class="username-highlight">${escapeHtml(userName)}</span>
+    </div>
+  `;
 
   const titleEl = document.getElementById('todo-title');
   titleEl.innerHTML = isBasmah
@@ -192,8 +151,13 @@ function render() {
 
   document.getElementById('current-date').textContent = getFormattedDate();
 
-  const completedCount = tasks.filter((t) => t.completed).length;
-  document.getElementById('progress-counter').textContent = `${completedCount} / ${tasks.length}`;
+  const userTasks = tasks.filter(t => {
+    if (!t.createdBy) return true;
+    return t.createdBy.toLowerCase() === userName.toLowerCase();
+  });
+
+  const completedCount = userTasks.filter((t) => t.completed).length;
+  document.getElementById('progress-counter').textContent = `${completedCount} / ${userTasks.length}`;
 
   const taskInput = document.getElementById('new-task-input');
   taskInput.placeholder = isBasmah
@@ -203,7 +167,7 @@ function render() {
   const inputIcon = document.getElementById('input-icon');
   inputIcon.innerHTML = isBasmah ? ICONS.flower : ICONS.plus;
 
-  const filteredTasks = tasks.filter((t) => {
+  const filteredTasks = userTasks.filter((t) => {
     if (filter === 'active') return !t.completed;
     if (filter === 'completed') return t.completed;
     return true;
@@ -212,7 +176,7 @@ function render() {
   const listContainer = document.getElementById('task-list-container');
   if (filteredTasks.length === 0) {
     let emptyMsg = 'All clear! Add a new task above.';
-    if (tasks.length > 0) {
+    if (userTasks.length > 0) {
       emptyMsg = filter === 'active' ? 'No active tasks remaining.' : 'No completed tasks yet.';
     }
     listContainer.innerHTML = `
@@ -288,12 +252,10 @@ function render() {
         `;
 
         li.querySelector(`#toggle-${task.id}`).onclick = () => toggleTask(task.id);
-
         li.querySelector(`#text-${task.id}`).ondblclick = () => {
           editingId = task.id;
           render();
         };
-
         li.querySelector(`#add-sub-btn-${task.id}`).onclick = () => {
           addingSubtaskForId = task.id;
           render();
@@ -391,22 +353,16 @@ function render() {
   }
 }
 
-// --- Supabase Actions (Database Operations Fixed) ---
+// --- Supabase Actions ---
 async function addTask(text) {
   const trimmed = text.trim();
   if (!trimmed) return;
 
-  const { data, error } = await supabaseClient
+  const { error } = await supabaseClient
     .from('tasks')
-    .insert([{ text: trimmed, completed: false }])
-    .select();
+    .insert([{ text: trimmed, completed: false, created_by: userName }]);
 
-  if (error) {
-    console.error('Error adding task:', error.message);
-    alert('حدث خطأ أثناء إضافة المهمة: ' + error.message);
-  } else {
-    console.log('Task added successfully:', data);
-  }
+  if (error) console.error('Error adding task:', error.message);
 }
 
 async function toggleTask(id) {
@@ -415,13 +371,11 @@ async function toggleTask(id) {
 
   const newCompleted = !task.completed;
 
-  // تحديث المهمة الرئيسية
   await supabaseClient
     .from('tasks')
     .update({ completed: newCompleted })
     .eq('id', id);
 
-  // تحديث كافة المهام الفرعية التابعة لها
   await supabaseClient
     .from('subtasks')
     .update({ completed: newCompleted })
@@ -498,7 +452,11 @@ async function deleteSubtask(taskId, subtaskId) {
 }
 
 async function clearCompleted() {
-  const completedIds = tasks.filter(t => t.completed).map(t => t.id);
+  const userTasks = tasks.filter(t => {
+    if (!t.createdBy) return true;
+    return t.createdBy.toLowerCase() === userName.toLowerCase();
+  });
+  const completedIds = userTasks.filter(t => t.completed).map(t => t.id);
   if (completedIds.length === 0) return;
 
   await supabaseClient
@@ -524,15 +482,13 @@ function escapeHtml(str) {
     .replace(/'/g, '&#039;');
 }
 
-// Initial Event Listeners & Realtime Subscription
+// Initial Event Listeners & Realtime
 document.addEventListener('DOMContentLoaded', () => {
   userName = loadUserName();
 
-  // User Switcher
   document.getElementById('switch-user-nawaf').onclick = () => switchUser('Nawaf');
   document.getElementById('switch-user-basmah').onclick = () => switchUser('Basmah');
 
-  // Add Task Form
   const addForm = document.getElementById('add-task-form');
   const taskInput = document.getElementById('new-task-input');
 
@@ -542,7 +498,6 @@ document.addEventListener('DOMContentLoaded', () => {
     taskInput.value = '';
   };
 
-  // Filter Buttons
   document.querySelectorAll('.filter-btn').forEach((btn) => {
     btn.onclick = () => {
       filter = btn.dataset.filter;
@@ -550,13 +505,10 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   });
 
-  // Clear Completed Button
   document.getElementById('clear-completed-button').onclick = clearCompleted;
 
-  // جلب البيانات الأولية من Supabase
   fetchTasksFromSupabase();
 
-  // تفعيل الاستماع الفوري (Realtime) لتظهر التعديلات بينكما مباشرة دون تحديث الصفحة
   supabaseClient
     .channel('public-db-changes')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => {
