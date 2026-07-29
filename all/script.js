@@ -16,6 +16,7 @@ const ICONS = {
   checkSmall: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
   edit: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
   trash: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`,
+  restore: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>`,
   x: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
   xSmall: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
   cornerDownRight: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 10 20 15 15 20"/><path d="M4 4v7a4 4 0 0 0 4 4h12"/></svg>`,
@@ -29,6 +30,7 @@ let tasks = [];
 let filter = 'all';
 let editingId = null;
 let addingSubtaskForId = null;
+let currentView = 'tasks'; // 'tasks' أو 'trash'
 
 function isBasmahUser(name) {
   const n = (name || '').trim().toLowerCase();
@@ -71,6 +73,7 @@ async function fetchTasksFromSupabase() {
       id: t.id,
       text: t.text,
       completed: t.completed,
+      isDeleted: t.is_deleted || false,
       createdBy: t.created_by || 'Nawaf',
       createdAt: new Date(t.created_at).getTime(),
       subtasks: (dbSubtasks || [])
@@ -145,43 +148,51 @@ function render() {
   `;
 
   const titleEl = document.getElementById('todo-title');
-  titleEl.innerHTML = isBasmah
-    ? `<span style="color:#e11d48; display:inline-flex;">${ICONS.flower}</span> Today`
-    : `Today`;
+  titleEl.innerHTML = currentView === 'trash' 
+    ? `${escapeHtml(userName)}'s Trash Bin 🗑️` 
+    : (isBasmah ? `<span style="color:#e11d48; display:inline-flex;">${ICONS.flower}</span> Today` : `Today`);
 
   document.getElementById('current-date').textContent = getFormattedDate();
 
-  const userTasks = tasks.filter(t => {
+  const userAllTasks = tasks.filter(t => {
     if (!t.createdBy) return true;
     return t.createdBy.toLowerCase() === userName.toLowerCase();
   });
 
+  const userTasks = userAllTasks.filter(t => !t.isDeleted);
+  const trashUserTasks = userAllTasks.filter(t => t.isDeleted);
+
   const completedCount = userTasks.filter((t) => t.completed).length;
   document.getElementById('progress-counter').textContent = `${completedCount} / ${userTasks.length}`;
 
+  const addForm = document.getElementById('add-task-form');
   const taskInput = document.getElementById('new-task-input');
-  taskInput.placeholder = isBasmah
-    ? 'What beautiful task needs to be done today? 🌸'
-    : 'What needs to be done?';
+  
+  if (addForm) addForm.style.display = currentView === 'trash' ? 'none' : 'flex';
+  if (taskInput && currentView !== 'trash') {
+    taskInput.placeholder = isBasmah
+      ? 'What beautiful task needs to be done today? 🌸'
+      : 'What needs to be done?';
+  }
   
   const inputIcon = document.getElementById('input-icon');
-  inputIcon.innerHTML = isBasmah ? ICONS.flower : ICONS.plus;
+  if (inputIcon) inputIcon.innerHTML = isBasmah ? ICONS.flower : ICONS.plus;
 
-  const filteredTasks = userTasks.filter((t) => {
+  const displayedTasks = currentView === 'trash' ? trashUserTasks : userTasks.filter((t) => {
     if (filter === 'active') return !t.completed;
     if (filter === 'completed') return t.completed;
     return true;
   });
 
   const listContainer = document.getElementById('task-list-container');
-  if (filteredTasks.length === 0) {
-    let emptyMsg = 'All clear! Add a new task above.';
-    if (userTasks.length > 0) {
+  if (displayedTasks.length === 0) {
+    let emptyMsg = currentView === 'trash' ? 'Your trash bin is empty.' : 'All clear! Add a new task above.';
+    if (userTasks.length > 0 && currentView !== 'trash') {
       emptyMsg = filter === 'active' ? 'No active tasks remaining.' : 'No completed tasks yet.';
     }
     listContainer.innerHTML = `
       <div class="empty-state-box">
-        <div class="empty-icon">${isBasmah ? ICONS.flowerLarge : ICONS.checkCircle}</div>
+        <div class="empty-icon">${isBasmah && currentView !== 'trash' ? ICONS.flowerLarge : ICONS.checkCircle}</div>
         <p>${emptyMsg}</p>
       </div>
     `;
@@ -189,12 +200,26 @@ function render() {
     const ul = document.createElement('ul');
     ul.className = 'task-list';
 
-    filteredTasks.forEach((task) => {
+    displayedTasks.forEach((task) => {
       const li = document.createElement('li');
       li.className = `task-card fade-in ${task.completed ? 'completed' : ''}`;
       li.id = `task-item-${task.id}`;
 
-      if (editingId === task.id) {
+      if (currentView === 'trash') {
+        li.innerHTML = `
+          <div class="task-main-row">
+            <div class="task-text-container">
+              <span class="task-text" style="text-decoration: line-through; opacity: 0.7;">${escapeHtml(task.text)}</span>
+            </div>
+            <div class="task-actions">
+              <button class="action-btn" id="restore-btn-${task.id}" title="Restore">${ICONS.restore} Restore</button>
+              <button class="action-btn" id="perma-del-btn-${task.id}" style="color:#e11d48;" title="Delete forever">${ICONS.trash} Delete</button>
+            </div>
+          </div>
+        `;
+        li.querySelector(`#restore-btn-${task.id}`).onclick = () => restoreTask(task.id);
+        li.querySelector(`#perma-del-btn-${task.id}`).onclick = () => deleteForever(task.id);
+      } else if (editingId === task.id) {
         li.innerHTML = `
           <div class="edit-task-row">
             <input type="text" id="edit-input-${task.id}" class="inline-edit-input" value="${escapeHtml(task.text)}" />
@@ -241,7 +266,7 @@ function render() {
                 ${ICONS.plusSmall} Subtask
               </button>
               <button class="action-btn" id="edit-btn-${task.id}" title="Edit task">${ICONS.edit}</button>
-              <button class="action-btn" id="delete-btn-${task.id}" title="Delete task">${ICONS.trash}</button>
+              <button class="action-btn" id="delete-btn-${task.id}" title="Move to trash">${ICONS.trash}</button>
             </div>
           </div>
           ${
@@ -264,7 +289,7 @@ function render() {
           editingId = task.id;
           render();
         };
-        li.querySelector(`#delete-btn-${task.id}`).onclick = () => deleteTask(task.id);
+        li.querySelector(`#delete-btn-${task.id}`).onclick = () => moveToTrash(task.id);
 
         if (subtasks.length > 0 || isAddingSubtask) {
           const subWrapper = li.querySelector(`#subtasks-container-${task.id}`);
@@ -337,6 +362,30 @@ function render() {
     listContainer.appendChild(ul);
   }
 
+  // زر سلة المهملات الخاص بالمستخدم حصرياً أسفل القائمة
+  let personalTrashBtn = document.getElementById('personal-trash-btn');
+  if (!personalTrashBtn) {
+    personalTrashBtn = document.createElement('button');
+    personalTrashBtn.id = 'personal-trash-btn';
+    personalTrashBtn.className = 'action-btn';
+    personalTrashBtn.style.cssText = 'margin: 20px auto; display: block; padding: 8px 16px; font-size: 14px; border-radius: 8px; cursor: pointer; background: transparent; border: 1px dashed currentColor;';
+    listContainer.parentNode.appendChild(personalTrashBtn);
+  }
+
+  personalTrashBtn.innerHTML = currentView === 'trash' 
+    ? `⬅️ Back to ${escapeHtml(userName)}'s Tasks` 
+    : `🗑️ View ${escapeHtml(userName)}'s Trash (${trashUserTasks.length})`;
+    
+  personalTrashBtn.onclick = () => {
+    currentView = currentView === 'trash' ? 'tasks' : 'trash';
+    render();
+  };
+
+  const filterBtnsContainer = document.querySelector('.filter-buttons-container') || document.querySelector('.filters');
+  if (filterBtnsContainer) {
+    filterBtnsContainer.style.display = currentView === 'trash' ? 'none' : 'flex';
+  }
+
   document.querySelectorAll('.filter-btn').forEach((btn) => {
     if (btn.dataset.filter === filter) {
       btn.classList.add('active');
@@ -346,10 +395,12 @@ function render() {
   });
 
   const clearBtn = document.getElementById('clear-completed-button');
-  if (completedCount > 0) {
-    clearBtn.style.display = 'block';
-  } else {
-    clearBtn.style.display = 'none';
+  if (clearBtn) {
+    if (completedCount > 0 && currentView !== 'trash') {
+      clearBtn.style.display = 'block';
+    } else {
+      clearBtn.style.display = 'none';
+    }
   }
 }
 
@@ -360,7 +411,7 @@ async function addTask(text) {
 
   const { error } = await supabaseClient
     .from('tasks')
-    .insert([{ text: trimmed, completed: false, created_by: userName }]);
+    .insert([{ text: trimmed, completed: false, created_by: userName, is_deleted: false }]);
 
   if (error) console.error('Error adding task:', error.message);
 }
@@ -385,7 +436,7 @@ async function toggleTask(id) {
 async function saveTaskText(id, text) {
   const trimmed = text.trim();
   if (!trimmed) {
-    deleteTask(id);
+    moveToTrash(id);
     return;
   }
 
@@ -397,8 +448,27 @@ async function saveTaskText(id, text) {
   editingId = null;
 }
 
-async function deleteTask(id) {
+async function moveToTrash(id) {
   if (editingId === id) editingId = null;
+
+  await supabaseClient
+    .from('tasks')
+    .update({ is_deleted: true })
+    .eq('id', id);
+}
+
+async function restoreTask(id) {
+  await supabaseClient
+    .from('tasks')
+    .update({ is_deleted: false })
+    .eq('id', id);
+}
+
+async function deleteForever(id) {
+  await supabaseClient
+    .from('subtasks')
+    .delete()
+    .eq('task_id', id);
 
   await supabaseClient
     .from('tasks')
@@ -454,14 +524,14 @@ async function deleteSubtask(taskId, subtaskId) {
 async function clearCompleted() {
   const userTasks = tasks.filter(t => {
     if (!t.createdBy) return true;
-    return t.createdBy.toLowerCase() === userName.toLowerCase();
+    return t.createdBy.toLowerCase() === userName.toLowerCase() && !t.isDeleted;
   });
   const completedIds = userTasks.filter(t => t.completed).map(t => t.id);
   if (completedIds.length === 0) return;
 
   await supabaseClient
     .from('tasks')
-    .delete()
+    .update({ is_deleted: true })
     .in('id', completedIds);
 }
 
@@ -470,6 +540,7 @@ function switchUser(newUserName) {
   saveUserName(userName);
   editingId = null;
   addingSubtaskForId = null;
+  currentView = 'tasks';
   render();
 }
 
@@ -486,17 +557,21 @@ function escapeHtml(str) {
 document.addEventListener('DOMContentLoaded', () => {
   userName = loadUserName();
 
-  document.getElementById('switch-user-nawaf').onclick = () => switchUser('Nawaf');
-  document.getElementById('switch-user-basmah').onclick = () => switchUser('Basmah');
+  const btnNawaf = document.getElementById('switch-user-nawaf');
+  const btnBasmah = document.getElementById('switch-user-basmah');
+  if (btnNawaf) btnNawaf.onclick = () => switchUser('Nawaf');
+  if (btnBasmah) btnBasmah.onclick = () => switchUser('Basmah');
 
   const addForm = document.getElementById('add-task-form');
   const taskInput = document.getElementById('new-task-input');
 
-  addForm.onsubmit = (e) => {
-    e.preventDefault();
-    addTask(taskInput.value);
-    taskInput.value = '';
-  };
+  if (addForm && taskInput) {
+    addForm.onsubmit = (e) => {
+      e.preventDefault();
+      addTask(taskInput.value);
+      taskInput.value = '';
+    };
+  }
 
   document.querySelectorAll('.filter-btn').forEach((btn) => {
     btn.onclick = () => {
@@ -505,7 +580,8 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   });
 
-  document.getElementById('clear-completed-button').onclick = clearCompleted;
+  const clearBtn = document.getElementById('clear-completed-button');
+  if (clearBtn) clearBtn.onclick = clearCompleted;
 
   fetchTasksFromSupabase();
 
